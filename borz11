@@ -1,0 +1,122 @@
+-- 1. Ñîçäàåì áàçó äàííûõ
+IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'ShopDB')
+BEGIN
+    CREATE DATABASE ShopDB;
+END
+GO
+
+USE ShopDB;
+GO
+
+-- Óäàëÿåì òàáëèöû â ïðàâèëüíîì ïîðÿäêå (îò äî÷åðíèõ ê ðîäèòåëüñêèì), åñëè îíè óæå åñòü
+IF OBJECT_ID('dbo.OrderItems', 'U') IS NOT NULL DROP TABLE dbo.OrderItems;
+IF OBJECT_ID('dbo.Orders', 'U') IS NOT NULL DROP TABLE dbo.Orders;
+IF OBJECT_ID('dbo.Products', 'U') IS NOT NULL DROP TABLE dbo.Products;
+IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DROP TABLE dbo.Categories;
+IF OBJECT_ID('dbo.Customers', 'U') IS NOT NULL DROP TABLE dbo.Customers;
+GO
+
+-- 2. Ñîçäàåì òàáëèöû
+
+-- Òàáëèöà 1: Êëèåíòû (Customers)
+CREATE TABLE dbo.Customers (
+    CustomerID INT IDENTITY(1,1) PRIMARY KEY, -- Primary Key
+    FirstName VARCHAR(50) NOT NULL,
+    LastName VARCHAR(50) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Phone VARCHAR(20)
+);
+GO
+
+-- Òàáëèöà 2: Êàòåãîðèè òîâàðîâ (Categories)
+CREATE TABLE dbo.Categories (
+    CategoryID INT IDENTITY(1,1) PRIMARY KEY, -- Primary Key
+    CategoryName VARCHAR(50) NOT NULL,
+    Description VARCHAR(255)
+);
+GO
+
+-- Òàáëèöà 3: Òîâàðû (Products)
+-- Ñâÿçàíà ñ Categories ÷åðåç Foreign Key
+CREATE TABLE dbo.Products (
+    ProductID INT IDENTITY(1,1) PRIMARY KEY, -- Primary Key
+    ProductName VARCHAR(100) NOT NULL,
+    Price DECIMAL(10, 2) NOT NULL,
+    StockQuantity INT DEFAULT 0,
+    CategoryID INT NOT NULL,
+    CONSTRAINT FK_Products_Categories FOREIGN KEY (CategoryID) REFERENCES dbo.Categories(CategoryID) -- Foreign Key
+);
+GO
+
+-- Òàáëèöà 4: Çàêàçû (Orders)
+-- Ñâÿçàíà ñ Customers ÷åðåç Foreign Key
+CREATE TABLE dbo.Orders (
+    OrderID INT IDENTITY(1,1) PRIMARY KEY, -- Primary Key
+    OrderDate DATETIME DEFAULT GETDATE(),
+    TotalAmount DECIMAL(10, 2) NOT NULL,
+    CustomerID INT NOT NULL,
+    CONSTRAINT FK_Orders_Customers FOREIGN KEY (CustomerID) REFERENCES dbo.Customers(CustomerID) -- Foreign Key
+);
+GO
+
+-- Òàáëèöà 5: Ïîçèöèè çàêàçà (OrderItems)
+-- Ñâÿçàíà ñ Orders è Products ÷åðåç Foreign Key (ñîñòàâíîé ïåðâè÷íûé êëþ÷)
+CREATE TABLE dbo.OrderItems (
+    OrderID INT NOT NULL,
+    ProductID INT NOT NULL,
+    Quantity INT NOT NULL,
+    PriceAtPurchase DECIMAL(10, 2) NOT NULL,
+    PRIMARY KEY (OrderID, ProductID), -- Ñîñòàâíîé Primary Key
+    CONSTRAINT FK_OrderItems_Orders FOREIGN KEY (OrderID) REFERENCES dbo.Orders(OrderID), -- Foreign Key
+    CONSTRAINT FK_OrderItems_Products FOREIGN KEY (ProductID) REFERENCES dbo.Products(ProductID) -- Foreign Key
+);
+GO
+
+-- 3. Íàïîëíÿåì òàáëèöû äàííûìè (Insert)
+
+-- Âñòàâëÿåì Êëèåíòîâ
+INSERT INTO dbo.Customers (FirstName, LastName, Email, Phone) VALUES
+('Èâàí', 'Èâàíîâ', 'ivan@example.com', '+79001112233'),
+('Ïåòð', 'Ïåòðîâ', 'petr@example.com', '+79004445566'),
+('Àííà', 'Ñèäîðîâà', 'anna@example.com', '+79007778899');
+GO
+
+-- Âñòàâëÿåì Êàòåãîðèè
+INSERT INTO dbo.Categories (CategoryName, Description) VALUES
+('Ýëåêòðîíèêà', 'Ñìàðòôîíû, íîóòáóêè, òåëåâèçîðû'),
+('Îäåæäà', 'Ìóæñêàÿ è æåíñêàÿ îäåæäà'),
+('Êíèãè', 'Õóäîæåñòâåííàÿ è òåõíè÷åñêàÿ ëèòåðàòóðà');
+GO
+
+-- Âñòàâëÿåì Òîâàðû (ñ ïðèâÿçêîé ê êàòåãîðèÿì)
+INSERT INTO dbo.Products (ProductName, Price, StockQuantity, CategoryID) VALUES
+('Ñìàðòôîí Galaxy S23', 80000.00, 10, 1), -- CategoryID = 1 (Ýëåêòðîíèêà)
+('Íîóòáóê MacBook Pro', 150000.00, 5, 1), -- CategoryID = 1
+('Ôóòáîëêà õëîïêîâàÿ', 1500.00, 100, 2),  -- CategoryID = 2 (Îäåæäà)
+('Äæèíñû ñèíèå', 3500.00, 50, 2),         -- CategoryID = 2
+('Êíèãà "SQL äëÿ ÷àéíèêîâ"', 1200.00, 20, 3); -- CategoryID = 3 (Êíèãè)
+GO
+
+-- Âñòàâëÿåì Çàêàçû (ñ ïðèâÿçêîé ê êëèåíòàì)
+INSERT INTO dbo.Orders (TotalAmount, CustomerID) VALUES
+(81500.00, 1), -- Çàêàç äëÿ Èâàíà
+(150000.00, 2), -- Çàêàç äëÿ Ïåòðà
+(5000.00, 3);  -- Çàêàç äëÿ Àííû
+GO
+
+-- Âñòàâëÿåì Ïîçèöèè çàêàçîâ (ñ ïðèâÿçêîé ê çàêàçàì è òîâàðàì)
+INSERT INTO dbo.OrderItems (OrderID, ProductID, Quantity, PriceAtPurchase) VALUES
+(1, 1, 1, 80000.00), -- 1 ñìàðòôîí â çàêàçå ¹1
+(1, 3, 1, 1500.00),  -- 1 ôóòáîëêà â çàêàçå ¹1
+(2, 2, 1, 150000.00),-- 1 íîóòáóê â çàêàçå ¹2
+(3, 4, 1, 3500.00),  -- 1 äæèíñû â çàêàçå ¹3
+(3, 5, 1, 1200.00);  -- 1 êíèãà â çàêàçå ¹3
+GO
+
+-- 4. Ïðîâåðêà (âûâîä äàííûõ)
+SELECT * FROM dbo.Customers;
+SELECT * FROM dbo.Categories;
+SELECT * FROM dbo.Products;
+SELECT * FROM dbo.Orders;
+SELECT * FROM dbo.OrderItems;
+GO
